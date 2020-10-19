@@ -1,10 +1,13 @@
+
+###############################################################################
+################################ import   #####################################
+###############################################################################
+import data
+import resnet
+
 import os
 import json
-import pandas
-import numpy
-import copy
-import math
-import statistics
+import getpass
 import datetime
 
 import matplotlib
@@ -28,353 +31,112 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.utils.class_weight import compute_class_weight
 
-#TF
 ###############################################################################
-####################         Functions                     ####################
-###############################################################################
-
-def one_hot_AA_seq(seq: str):
-    out = []
-    keys = {"G": [1,0,0,0],
-            "C": [0,1,0,0],
-            "A": [0,0,1,0],
-            "U": [0,0,0,1]}
-    for i in seq:
-        out.append(copy.deepcopy(keys[i]))
-    return numpy.matrix(out)
-
-def one_hot_struct_seq(seq: str):
-    out = []
-    keys = {"S": [1,0,0,0,0,0,0],
-            "M": [0,1,0,0,0,0,0],
-            "I": [0,0,1,0,0,0,0],
-            "B": [0,0,0,1,0,0,0],
-            "H": [0,0,0,0,1,0,0],
-            "E": [0,0,0,0,0,1,0],
-            "X": [0,0,0,0,0,0,1]}
-    for i in seq :
-        out.append(copy.deepcopy(keys[i]))
-    return numpy.matrix(out)
-
-def mat_struct(seq : str):
-    taille = len(seq)
-    out = []
-    line = [0]*taille
-
-    for i in range(taille):
-        out.append(copy.deepcopy(line))
-
-    for i in range(len(seq)):
-        if seq[i] == "(" :
-            delta = 0
-            for j in range(len(seq)-i):
-                if seq[i+j] == "(" :
-                    delta + 1
-                if seq[i+j] == ")" :
-                    if delta != 0 :
-                        delta -= 1
-                    else:
-                        out[i][i+j] = 1
-                        out[i+j][i] = 1
-                        break
-    return numpy.matrix(out)
-
-def extract_key(clef : str, jsons) -> pandas.DataFrame:
-    Y = []
-    for i, val  in enumerate(jsons):
-        Y.append(val[clef])
-    return Y
-
-def extract_Y(jsons):
-    Y = pandas.concat([pandas.DataFrame(extract_key("deg_50C",jsons)),
-                       pandas.DataFrame(extract_key("deg_Mg_50C",jsons)),
-                       pandas.DataFrame(extract_key("deg_pH10",jsons)),
-                       pandas.DataFrame(extract_key("deg_Mg_pH10",jsons)),
-                       pandas.DataFrame(extract_key("reactivity",jsons))],axis = 1)
-
-    return Y
-
-def one_hot_structure(seq : str):
-    out = []
-    key = {"." : [1,0,0],
-           "(" : [0,1,0],
-           ")" : [0,0,1]}
-    for i in seq:
-        out.append(key[i])
-    return numpy.matrix(out)
-
-def extract_X2(jsons):
-    X2 = pandas.concat([pandas.DataFrame(normer(extract_key("signal_to_noise",jsons))),
-                        pandas.DataFrame(normer(extract_key("SN_filter",jsons))),
-                        pandas.DataFrame(normer(extract_key("seq_length",jsons))),
-                        pandas.DataFrame(normer(extract_key("seq_scored",jsons))),
-                        pandas.DataFrame(normer(extract_key("reactivity_error",jsons))),
-                        pandas.DataFrame(normer(extract_key("deg_error_Mg_pH10",jsons))),
-                        pandas.DataFrame(normer(extract_key("deg_error_pH10",jsons))),
-                        pandas.DataFrame(normer(extract_key("deg_error_Mg_50C",jsons))),
-                        pandas.DataFrame(normer(extract_key("deg_error_50C",jsons)))],
-                       axis=1)
-    return X2
-
-def normer(vec):
-    if isinstance(vec[0],list):
-        out = []
-        for i in vec:
-            out.append(norm(i))
-        return(out)
-    else :
-        return norm(vec)
-
-def norm(vec):
-    #print(vec[:5],"\n")
-    m = statistics.mean(vec)
-    std = statistics.stdev(vec)
-    for i in range(len(vec)):
-        if std != 0:
-            vec[i] = (vec[i]-m)/std
-        else:
-            vec[i]=1
-    return vec
-
-def mat_input(jsons):
-    data_out  = []
-    for i in jsons :
-        ohaa  = one_hot_AA_seq(i["sequence"])
-        ohsty = one_hot_struct_seq(i["predicted_loop_type"])
-        ohst = one_hot_structure(i["structure"])
-        data = numpy.concatenate((ohaa ,ohsty , ohst), axis= 1)
-        data_out.append(data)
-    mat_out = numpy.array(data_out)
-    return(mat_out)
-
-
-def mat_output(jsons):
-    data_out = []
-    for i in jsons :
-        reactivity = i["reactivity"]
-        deg_Mg_pH10 = i["deg_Mg_pH10"]
-        deg_pH10 = i["deg_pH10"]
-        deg_Mg_50C = i["deg_Mg_50C"]
-        deg_50C = i["deg_50C"]
-        out = []
-        for j in range(len(reactivity)):
-             out.append([reactivity[j],
-                         deg_Mg_pH10[j],
-                         deg_pH10[j],
-                         deg_Mg_50C[j],
-                         deg_50C[j]])
-        data_out.append(out)
-    data_out = numpy.array(data_out)
-    return data_out
-
-###############################################################################
-####################         load data                     ####################
+################################ Reseaux  #####################################
 ###############################################################################
 
-jsons_train = []
-with open("../data/train.json") as fil :
-    for i in fil :
-        a = json.loads(i)
-        if a["SN_filter"] == 0:
-            continue
-        jsons_train.append(a)
- 
-jsons_test = []
-
-with open("../data/test.json") as fil :
-    for i in fil :
-        jsons_test.append(json.loads(i))
-
-
-mat_intput_train = mat_input(jsons_train)
-
-for i in jsons_train:
-    if len(i["structure"]) != 107:
-        print("error")
-Y_train = extract_Y(jsons_train)
-
-Y_train = mat_output(jsons_train)
-
-# to predict
-    # 'reactivity',
-    # 'deg_Mg_pH10',
-    # 'deg_pH10',
-    # 'deg_Mg_50C',
-    # 'deg_50C'
-
-
-## creation du modele
-
-
-# def resnet(modelI):
-#     model = layers.Dense(units = 1024,
-#                             activation= "relu")(modelI)
-
-#     model = layers.Dense(units = 1024,
-#                             activation= "relu")(model)
-#     model = layers.Add()([model, modelI])
-#     return(model)
-
-
-def conv_resnet(modelI):
+def tail_model(model_in):
     model = layers.Conv1D(filters= 30,
-                          kernel_size=(3,),
-                          activation= "relu",
-                          padding="same")(modelI)
-
+                           kernel_size=(14,),
+                           activation="relu")(model_in)
     model = layers.Conv1D(filters= 30,
-                          kernel_size=(3,),
-                          activation= "relu",
-                          padding="same")(model)
-    model = layers.Add()([model, modelI])
-    return(model)
-
-
-def tail_model(model1):
-    model1 = layers.Conv1D(filters= 30,
                            kernel_size=(14,),
-                           activation="relu")(model1)
-    model1 = layers.Conv1D(filters= 30,
+                           activation="relu")(model)
+    model = layers.Conv1D(filters= 5,
                            kernel_size=(14,),
-                           activation="relu")(model1)
-    model1 = layers.Conv1D(filters= 5,
-                           kernel_size=(14,),
-                           activation="softmax")(model1)
-    return model1
-
-def res_original(model):
-    model  = layers.Conv1D(filters = 30,
-                           kernel_size=(3,),
-                           activation = "relu",
-                           padding="same")(model)
-    model = layers.BatchNormalization()(model)
-    model = layers.Activation("relu")(model)
-    model = layers.Conv1D(filters = 30,
-                           kernel_size=(3,),
-                           activation = "relu",
-                           padding="same")(model)
-    model = layers.BatchNormalization()(model)
-    return model
-
-def res_pre_act(model):
-    model = layers.BatchNormalization()(model)
-    model = layers.Activation("relu")(model)
-    model = layers.Conv1D(filters = 30,
-                           kernel_size=(3,),
-                           activation = "relu",
-                           padding="same")(model)
-    model = layers.BatchNormalization()(model)
-    model = layers.Activation("relu")(model)
-    model = layers.Conv1D(filters = 30,
-                           kernel_size=(3,),
-                           activation = "relu",
-                           padding="same")(model)
+                           activation="softmax")(model)
     return model
 
 
-def creat_model():
-    i = layers.Input(shape =(107,14))
-    model1 = layers.Conv1D(filters= 30,
+def creat_model(resnet_part,rep = 5):
+    model_input = tf.keras.Input(shape =(107,14))
+    model = layers.Conv1D(filters= 30,
                            kernel_size=(3,),
                            activation = "relu",
-                           padding="same")(i)
-    model1 = conv_resnet(model1)
-    model1 = layers.Conv1D(filters= 30,
-                             kernel_size=(2,),
-                             activation="relu",
-                           padding="same")(model1)
-    model1 = conv_resnet(model1)
-    model1 = layers.Conv1D(filters= 30,
-                             kernel_size=(2,),
-                             activation="relu",
-                           padding="same")(model1)
-    model1 = layers.Conv1D(filters= 30,
-                           kernel_size=(2,),
-                           activation="relu",
-                           padding="same")(model1)
-    #
-    model1 = conv_resnet(model1)
-    #
-    model1 = tail_model(model1)
-    #
-    model1 = tf.keras.Model(inputs=i, outputs=model1)
-    model1.compile(optimizer="rmsprop",
+                           padding="same")(model_input)
+    for i in range(rep):
+        model = resnet_part(model)
+    model = tail_model(model)
+    model = tf.keras.Model(inputs=model_input, outputs=model)
+    model.compile(optimizer="rmsprop",
                     loss = "mse")
-    return model1
-
-    # model1 = layers.Flatten()(model1)
-
-    # model1 = layers.Dense(units = 1024,
-    #                       activation= "relu")(model1)
-    # model1 = resnet(model1)
-    # model1 = layers.Dense(units = 1024,
-    #                       activation= "relu")(model1)
-    # model1 = resnet(model1)
-    # model1 = layers.Dense(units = 1024,
-    #                       activation= "relu")(model1)
-    # model1 = resnet(model1)
-    # model1 = layers.Dense(units = 1024,
-    #                       activation= "relu")(model1)
+    return model
 
 
+def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
+                  epochs = 5, batch_size = 16,verbose = 1):
+    now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    save_dir = "../results/{}-{}".format(now,getpass.getuser())
 
-    # model1 = layers.Dense(units = 512,
-    #                       activation= "relu")(model1)
+    os.mkdir(save_dir)
+    for i_resnet,resnet_part in enumerate(list_resnet):
 
-    # model1 = layers.Dense(units=340,
-    #                       activation="relu")(model1)
+        res_name = str(resnet_part).split()[1]
+        res_name_dir = save_dir + "/{}".format(res_name)
+        os.mkdir(res_name_dir)
 
-out = []
-i = 0.01
-l_rate = [ 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]
-l_rate = [ 1e-1, 1e-2, 1e-3]
-for i in l_rate:
-    model1 = creat_model()
-    fit_out = model1.fit(x = mat_intput_train,
-                         y = Y_train,
-                         batch_size=32,
-                         #steps_per_epoch= 5,
-                         epochs =5,
-                         validation_split= i,
-                         verbose = 1)
-    out.append({"res" :fit_out,"l_rate":i})
+        model = creat_model(resnet_part,nb_resnet)
+        plot_model(model,to_file=res_name_dir + "/model.png")
 
-###############################################################################
-############################## plot / Save ####################################
-###############################################################################
+        fig_loss = pyplot.figure()
+        ax_loss = fig_loss.add_subplot(1,1,1)
+        fig_val_loss = pyplot.figure()
+        ax_val_loss = fig_val_loss.add_subplot(1,1,1)
 
-now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-save = "../results/{}".format(now)
-
-os.mkdir(save)
-plot_model(model1,
-           to_file = save+"/reseau.png")
-
-for i in out:
-    pyplot.plot(i["res"].history["loss"][1:])
-pyplot.savefig(save + "/loss.png")
-
-for i in out :
-    pyplot.plot(i["res"].history["val_loss"])
-pyplot.savefig(save + "/val_loss.png")
-
-for i in out :
-    i["res"].model.save(save + "/{}-.model".format(i["l_rate"]))
+        for i_l_rate ,l_rate in enumerate(l_rates):
+            print("{}:{}/{} || {}:{}/{}".format(res_name,i_resnet+1,
+                                                len(list_resnet),
+                                                str(l_rate), i_l_rate+1,
+                                                len(l_rates)))
+            model = creat_model(resnet_part,nb_resnet)
+            out_fit = model.fit(x = mat_input,
+                             y = mat_output,
+                             batch_size=batch_size,
+                             #steps_per_epoch= 5,
+                             epochs =epochs,
+                             validation_split= l_rate,
+                                verbose = verbose)
+            ax_loss.plot(out_fit.history["loss"])
+            ax_val_loss.plot(out_fit.history["val_loss"])
+            model.save(res_name_dir+"/_{}_.model".format(l_rate))
 
 
+        fig_loss.savefig(res_name_dir+"/loss.png")
+        fig_val_loss.savefig(res_name_dir+"/val_loss.png")
 
-# training = KerasClassifier(build_fn = creat_model,
-#                            epochs = 1,
-#                            batch_size = 3)
-# cross_validation = KFold(n_splits = 3,
-#                          shuffle = True)
-# cv_results = sklearn.model_selection.cross_val_score(training,
-#                                                      mat_intput_train,
-#                                                      Y_train,
-#                                                      cv = cross_validation)
-# model.save('{0}{}',format(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
-#                           cv_results))
+if __name__ == "__main__" :
+    jsons_train = []
+
+    with open("../data/train.json") as fil :
+        for i in fil :
+            a = json.loads(i)
+            if a["SN_filter"] == 0:
+                continue
+            jsons_train.append(a)
+ 
+            jsons_test = []
+
+    with open("../data/test.json") as fil :
+        for i in fil :
+            jsons_test.append(json.loads(i))
 
 
-# print(cv_results)
+    mat_intput_train = data.mat_input(jsons_train)
 
+    Y_train = data.mat_output(jsons_train)
+
+    l_rates = [1e-1,1e-2,1e-3,
+               1e-4,1e-5,1e-6,
+               1e-7,1e-8,1e-9]
+
+    list_resnet = [resnet.classic,
+                   resnet.original,
+                   resnet.pre_act,
+                   resnet.pre_act_mod]
+
+    compare_model(mat_input = mat_intput_train,
+                  mat_output = Y_train,
+                  list_resnet = list_resnet,
+                  l_rates = l_rates,
+                  nb_resnet = 2 ,
+                  epochs = 2)
