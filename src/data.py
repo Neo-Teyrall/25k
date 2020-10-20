@@ -130,14 +130,14 @@ def mat_output(jsons):
     data_out = []
     for i,json in enumerate(jsons) :
         print("loading output : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
-        reactivity = json["reactivity"]
+        #reactivity = json["reactivity"]
         deg_Mg_pH10 = json["deg_Mg_pH10"]
         deg_pH10 = json["deg_pH10"]
         deg_Mg_50C = json["deg_Mg_50C"]
         deg_50C = json["deg_50C"]
         out = []
-        for j in range(len(reactivity)):
-             out.append([reactivity[j],
+        for j in range(len(deg_50C)):
+             out.append([#reactivity[j],
                          deg_Mg_pH10[j],
                          deg_pH10[j],
                          deg_Mg_50C[j],
