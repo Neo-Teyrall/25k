@@ -85,7 +85,6 @@ def creat_model_janus(resnet_part,
                            activation = "relu",
                            padding="same")(model_input_2)
     for i in range(rep_head_2):
-        print("add")
         model_2 = resnet_part(model_2,50)
     ###################### merge model ########################################
     #model_1 = tf.keras.Model(inputs=model_input_1, outputs=model_1)
@@ -134,6 +133,7 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
         ## pour chaque learning rate
         for i_l_rate ,l_rate in enumerate(l_rates):
             ## optimizer
+            tf.keras.backend.clear_session()
             opt = keras.optimizers.Adam(learning_rate=l_rate)
             print("{}:{}/{} || {}:{}/{}".format(res_name,i_resnet+1,
                                                 len(list_resnet),
@@ -160,12 +160,12 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
             model.save(res_name_dir+"/_{}_.model".format(l_rate))
             save_csv(save_dir,batch_size,res_name,out_fit.history,l_rate)
             del(model)
+            tf.keras.backend.clear_session()
             del(out_fit)
             ## sleep between two fit to fresh gpu
+            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
             time.sleep(sleep)
         ## save plot
-        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
-                                                fig_acc,fig_val_acc])
         #### Xlabel
         ax_val_acc.set_xlabel("epochs")
         ax_acc.set_xlabel("epochs")
@@ -190,8 +190,10 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
         fig_loss.savefig(res_name_dir+"/loss.png")
         fig_val_loss.savefig(res_name_dir+"/val_loss.png")
         #### accuracy
-        fig_loss.savefig(res_name_dir+"/loss.png")
-        fig_val_loss.savefig(res_name_dir+"/val_loss.png")
+        fig_loss.savefig(res_name_dir+"/accuracy.png")
+        fig_val_loss.savefig(res_name_dir+"/val_accuracy.png")
+        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
+                                                fig_acc,fig_val_acc])
         pyplot.close(fig_acc)
         pyplot.close(fig_val_acc)
         pyplot.close(fig_loss)
@@ -200,6 +202,8 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
         del(fig_acc)
         del(fig_loss)
         del(fig_val_acc)
+    tf.keras.backend.clear_session()
+
 
 def compare_model_janus(mat_input, mat_output,
                         list_resnet,
@@ -239,6 +243,7 @@ def compare_model_janus(mat_input, mat_output,
         ## pour chaque learning rate
         for i_l_rate ,l_rate in enumerate(l_rates):
             # optimiszer
+            tf.keras.backend.clear_session()
             opt = keras.optimizers.Adam(learning_rate=l_rate)
             print("{}:{}/{} || {}:{}/{} | JANUS".format(res_name,i_resnet+1,
                                                 len(list_resnet),
@@ -266,12 +271,14 @@ def compare_model_janus(mat_input, mat_output,
             model.save(res_name_dir+"/_{}_.model".format(l_rate))
             save_csv(save_dir,batch_size,res_name,out_fit.history,l_rate)
             del(model)
+            tf.keras.backend.clear_session()
+
             del(out_fit)
             ## sleep between two fit to fresh gpu
+            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
             time.sleep(sleep)
         ## save plot
-        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
-                                                fig_acc,fig_val_acc])
+        
         #### Xlabel
         ax_val_acc.set_xlabel("epochs")
         ax_acc.set_xlabel("epochs")
@@ -298,14 +305,19 @@ def compare_model_janus(mat_input, mat_output,
         #### ACCURACY
         fig_acc.savefig(res_name_dir + "/accuracy.png")
         fig_val_acc.savefig(res_name_dir + "/val_accuracy.png")
+        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
+                                                fig_acc,fig_val_acc])
         pyplot.close(fig_acc)
         pyplot.close(fig_val_acc)
         pyplot.close(fig_loss)
         pyplot.close(fig_val_loss)
+        
         del(fig_acc)
         del(fig_val_acc)
         del(fig_loss)
         del(fig_val_loss)
+        tf.keras.backend.clear_session()
+
 
 def head_csv(save_dir,epoch):
     head = "renset,learningRate,batchsize,"
