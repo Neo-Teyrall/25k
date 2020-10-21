@@ -108,22 +108,28 @@ def norm(vec):
             vec[i]=1
     return vec
 
-def mat_input(jsons):
+def mat_input(jsons,decalage = 0, taille = 68,):
     data_out  = []
     list_mat = []
     for i,json in enumerate(jsons) :
         print("loading input : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
         mat = numpy.load("../data/bpps/"+ json["id"]+".npy")
-        ohaa  = one_hot_AA_seq(json["sequence"])
-        ohsty = one_hot_struct_seq(json["predicted_loop_type"])
-        ohst = one_hot_structure(json["structure"])
+        mat = reshape_mat(mat,start= decalage, size  = taille)
+        ohaa  = one_hot_AA_seq(json["sequence"][decalage:taille])
+        ohsty = one_hot_struct_seq(json["predicted_loop_type"][decalage:taille])
+        ohst = one_hot_structure(json["structure"][decalage:taille])
         data = numpy.concatenate((ohaa ,ohsty , ohst), axis= 1)
+        
         data_out.append(data)
         list_mat.append(mat)
     mat_out = numpy.array(data_out)
     list_mat = numpy.array(list_mat)
     print()
     return(mat_out,list_mat)
+
+def reshape_mat(mat,start = 0 ,size = 68):
+    mat = mat[start:start+size,start:start+size]
+    return mat
 
 
 def mat_output(jsons):

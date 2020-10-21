@@ -39,19 +39,27 @@ from sklearn.utils.class_weight import compute_class_weight
 
 def tail_model(model_in):
     model = layers.Conv1D(filters= 30,
-                           kernel_size=(14,),
-                           activation="relu")(model_in)
-    model = layers.Conv1D(filters= 30,
-                           kernel_size=(14,),
-                           activation="relu")(model)
+                          kernel_size=(5,),
+                          activation="relu",
+                          padding = "same")(model_in)
+
+    model = layers.Conv1D(filters= 20,
+                          kernel_size=(5,),
+                          activation="relu",
+                          padding = "same")(model)
+    model = layers.Conv1D(filters= 10,
+                          kernel_size=(5,),
+                          activation="relu",
+                          padding = "same")(model)
     model = layers.Conv1D(filters= 4,
-                           kernel_size=(14,),
-                           activation="softmax")(model)
+                          kernel_size=(5,),
+                          activation="softmax",
+                          padding = "same")(model)
     return model
 
 
 def creat_model(resnet_part,rep = 5,optimizer = "rmsprop"):
-    model_input = tf.keras.Input(shape =(107,14))
+    model_input = tf.keras.Input(shape =(68,14))
     model = layers.Conv1D(filters= 30,
                            kernel_size=(3,),
                            activation = "relu",
@@ -71,7 +79,7 @@ def creat_model_janus(resnet_part,
                       rep_head_2 = 2,
                       rep_merged = 2):
     ################### model 2 ###############################################
-    model_input_1 = tf.keras.Input(shape =(107,14))
+    model_input_1 = tf.keras.Input(shape =(68,14))
     model_1 = layers.Conv1D(filters= 30,
                            kernel_size=(3,),
                            activation = "relu",
@@ -79,7 +87,7 @@ def creat_model_janus(resnet_part,
     for i in range(rep_head_1):
         model_1 = resnet_part(model_1)
     ################### model 2 ###############################################
-    model_input_2 = tf.keras.Input(shape =(107,107))
+    model_input_2 = tf.keras.Input(shape =(68,68))
     model_2 = layers.Conv1D(filters= 50,
                            kernel_size=(3,),
                            activation = "relu",
@@ -87,8 +95,6 @@ def creat_model_janus(resnet_part,
     for i in range(rep_head_2):
         model_2 = resnet_part(model_2,50)
     ###################### merge model ########################################
-    #model_1 = tf.keras.Model(inputs=model_input_1, outputs=model_1)
-    #model_2 = tf.keras.Model(inputs=model_input_2, outputs=model_2)
     model = layers.Concatenate()([model_1, model_2])
     ###################### tail model ########################################
     for i in range(rep_merged):
@@ -106,7 +112,7 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
                   epochs = 5, batch_size = 16,verbose = 0,sleep = 0):
     ## creat save repersitory 
     now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    save_dir = "../results/{}-{}".format(now,getpass.getuser())
+    save_dir = "../results/modeles/{}-{}".format(now,getpass.getuser())
     os.mkdir(save_dir)
     head_csv(save_dir,epochs)
     ## pour chaque resnet
@@ -130,6 +136,10 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
         ax_acc = fig_acc.add_subplot(1,1,1)
         fig_val_acc = pyplot.figure()
         ax_val_acc = fig_val_acc.add_subplot(1,1,1)
+        dic_fig = {"loss": [fig_loss, ax_loss],
+                   "val_loss": [fig_val_loss, ax_val_loss],
+                   "accuracy": [fig_acc, ax_acc],
+                   "val_accuracy": [fig_val_acc, ax_val_acc]}
         ## pour chaque learning rate
         for i_l_rate ,l_rate in enumerate(l_rates):
             ## optimizer
@@ -151,57 +161,22 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
                                 verbose = verbose)
             ## add to plot data
             #### loss
-            ax_loss.plot(out_fit.history["loss"],label=str(l_rate))
-            ax_val_loss.plot(out_fit.history["val_loss"],label=str(l_rate))
-            #### loss
-            ax_acc.plot(out_fit.history["accuracy"],label=str(l_rate))
-            ax_val_acc.plot(out_fit.history["val_accuracy"],label=str(l_rate))
+            add_plot_history(dic_fig,out_fit.history,l_rate)
             ## sauvegarde du model 
             model.save(res_name_dir+"/_{}_.model".format(l_rate))
             save_csv(save_dir,batch_size,res_name,out_fit.history,l_rate)
-            del(model)
+
             tf.keras.backend.clear_session()
             del(out_fit)
+            del(model)
             ## sleep between two fit to fresh gpu
             print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
             time.sleep(sleep)
         ## save plot
         #### Xlabel
-        ax_val_acc.set_xlabel("epochs")
-        ax_acc.set_xlabel("epochs")
-        ax_loss.set_xlabel("epochs")
-        ax_val_loss.set_xlabel("epochs")
-        ####Ylabel
-        ax_val_acc.set_ylabel("validation accuracy")
-        ax_acc.set_ylabel("accuracy")
-        ax_loss.set_ylabel("loss")
-        ax_val_loss.set_ylabel("validation loss")
-        #### title
-        ax_acc.set_title("precision en fonction des epochs")
-        ax_val_acc.set_title("validation accuracy en fonction des epochs")
-        ax_loss.set_title("loss en fonction des epochs")
-        ax_val_loss.set_title("validation loss en fonction des epochs")
-        #### legend
-        fig_loss.legend()
-        fig_acc.legend()
-        fig_val_loss.legend()
-        fig_val_acc.legend()
-        #### loss
-        fig_loss.savefig(res_name_dir+"/loss.png")
-        fig_val_loss.savefig(res_name_dir+"/val_loss.png")
-        #### accuracy
-        fig_loss.savefig(res_name_dir+"/accuracy.png")
-        fig_val_loss.savefig(res_name_dir+"/val_accuracy.png")
-        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
-                                                fig_acc,fig_val_acc])
-        pyplot.close(fig_acc)
-        pyplot.close(fig_val_acc)
-        pyplot.close(fig_loss)
-        pyplot.close(fig_val_loss)
-        del(fig_val_loss)
-        del(fig_acc)
-        del(fig_loss)
-        del(fig_val_acc)
+        save_fig(dic_fig,res_name_dir)
+        del_fig([fig_acc,fig_val_acc,fig_val_loss,fig_loss])
+        tf.keras.backend.clear_session()
     tf.keras.backend.clear_session()
 
 
@@ -214,7 +189,7 @@ def compare_model_janus(mat_input, mat_output,
                         verbose = 0,sleep = 0 ):
     ## creat comparaison repersitory
     now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    save_dir = "../results/{}-{}-janus".format(now,getpass.getuser())
+    save_dir = "../results/modeles/{}-{}-janus".format(now,getpass.getuser())
     os.mkdir(save_dir)
     head_csv(save_dir,epochs)
     for i_resnet,resnet_part in enumerate(list_resnet):
@@ -240,6 +215,10 @@ def compare_model_janus(mat_input, mat_output,
         ax_acc = fig_acc.add_subplot(1,1,1)
         fig_val_acc = pyplot.figure()
         ax_val_acc = fig_val_acc.add_subplot(1,1,1)
+        dic_fig = {"loss": [fig_loss, ax_loss],
+                   "val_loss": [fig_val_loss, ax_val_loss],
+                   "accuracy": [fig_acc, ax_acc],
+                   "val_accuracy": [fig_val_acc, ax_val_acc]}
         ## pour chaque learning rate
         for i_l_rate ,l_rate in enumerate(l_rates):
             # optimiszer
@@ -262,60 +241,21 @@ def compare_model_janus(mat_input, mat_output,
                              validation_split= 0.2,
                                 verbose = verbose)
             ## add data to plot
-            #### loss
-            ax_loss.plot(out_fit.history["loss"],label=str(l_rate))
-            ax_val_loss.plot(out_fit.history["val_loss"],label=str(l_rate))
-            #### accuracy
-            ax_acc.plot(out_fit.history["accuracy"],label=str(l_rate))
-            ax_val_acc.plot(out_fit.history["val_accuracy"],label=str(l_rate))
+            add_plot_history(dic_fig,out_fit.history,l_rate)
+            ## save model
             model.save(res_name_dir+"/_{}_.model".format(l_rate))
+            ## save data_to csv
             save_csv(save_dir,batch_size,res_name,out_fit.history,l_rate)
-            del(model)
+            
             tf.keras.backend.clear_session()
-
+            del(model)
             del(out_fit)
             ## sleep between two fit to fresh gpu
             print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
             time.sleep(sleep)
-        ## save plot
-        
-        #### Xlabel
-        ax_val_acc.set_xlabel("epochs")
-        ax_acc.set_xlabel("epochs")
-        ax_loss.set_xlabel("epochs")
-        ax_val_loss.set_xlabel("epochs")
-        ####Ylabel
-        ax_val_acc.set_ylabel("validation accuracy")
-        ax_acc.set_ylabel("accuracy")
-        ax_loss.set_ylabel("loss")
-        ax_val_loss.set_ylabel("validation loss")
-        #### title
-        ax_acc.set_title("precision en fonction des epochs")
-        ax_val_acc.set_title("validation accuracy en fonction des epochs")
-        ax_loss.set_title("loss en fonction des epochs")
-        ax_val_loss.set_title("validation loss en fonction des epochs")
-        #### legend
-        fig_loss.legend()
-        fig_acc.legend()
-        fig_val_loss.legend()
-        fig_val_acc.legend()
-        #### loss 
-        fig_loss.savefig(res_name_dir+"/loss.png")
-        fig_val_loss.savefig(res_name_dir+"/val_loss.png")
-        #### ACCURACY
-        fig_acc.savefig(res_name_dir + "/accuracy.png")
-        fig_val_acc.savefig(res_name_dir + "/val_accuracy.png")
-        numpy.save(res_name_dir + "/plots.npy",[fig_loss,fig_val_loss,
-                                                fig_acc,fig_val_acc])
-        pyplot.close(fig_acc)
-        pyplot.close(fig_val_acc)
-        pyplot.close(fig_loss)
-        pyplot.close(fig_val_loss)
-        
-        del(fig_acc)
-        del(fig_val_acc)
-        del(fig_loss)
-        del(fig_val_loss)
+        ## save fig 
+        save_fig(dic_fig,res_name_dir)
+        del_fig([fig_acc,fig_val_acc,fig_val_loss,fig_loss])
         tf.keras.backend.clear_session()
 
 
@@ -339,9 +279,26 @@ def save_csv(save_dir,batchsize,res_name,history,l_rate):
     with open(save_dir+"/learning.csv","a") as filout:
         for i in out:
             filout.write(i+"\n")
-        pass
 
-    pass
+def add_plot_history(dic_fig, history,l_rate):
+    for i in history:
+        dic_fig[i][1].plot(history[i],label = str(l_rate))
+
+def save_fig(dic_fig,res_name_dir):
+    for i in dic_fig:
+        dic_fig[i][1].set_xlabel("epochs")
+        dic_fig[i][1].set_ylabel(i)
+        dic_fig[i][1].set_title(i + " en fonction des epochs")
+        dic_fig[i][0].legend()
+        dic_fig[i][0].savefig(res_name_dir + "/" + i + ".png")
+        numpy.save(res_name_dir + "/" + i +".npy",
+                   [dic_fig[i][0]])
+
+def del_fig(args):
+    for i in args:
+        pyplot.close(i)
+        del(i)
+
 
 if __name__ == "__main__" :
     jsons_train = []
