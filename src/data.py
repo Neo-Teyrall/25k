@@ -5,6 +5,7 @@ import math
 import statistics
 import datetime
 import json
+import random
 
 def one_hot_AA_seq(seq: str):
     out = []
@@ -109,8 +110,7 @@ def norm(vec):
     return vec
 
 def mat_input(jsons,decalage = 0, taille = 68,):
-    data_out  = []
-    list_mat = []
+    datas = []
     for i,json in enumerate(jsons) :
         print("loading input : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
         mat = numpy.load("../data/bpps/"+ json["id"]+".npy")
@@ -119,39 +119,160 @@ def mat_input(jsons,decalage = 0, taille = 68,):
         ohsty = one_hot_struct_seq(json["predicted_loop_type"][decalage:taille])
         ohst = one_hot_structure(json["structure"][decalage:taille])
         data = numpy.concatenate((ohaa ,ohsty , ohst), axis= 1)
-        
-        data_out.append(data)
-        list_mat.append(mat)
-    mat_out = numpy.array(data_out)
-    list_mat = numpy.array(list_mat)
-    print()
-    return(mat_out,list_mat)
+        data = numpy.array(data)
+        datas.append([data,mat])
+    return(datas)
+
+def split_datas(datas):
+    colision = []
+    vec_pos = []
+    out = []
+    for i in datas:
+        colision.append(i[1])
+        vec_pos.append(i[0])
+        out.append(i[2])
+    colision = numpy.array(colision)
+    vec_pos = numpy.array(vec_pos)
+    out = numpy.array(out)
+    return vec_pos,colision,out
+
+def get_cross_val_ready(cv_datas):
+    cv_ready = []
+    for i in cv_datas:
+        cv_ready.append(list(split_datas(i)))
+    return cv_ready
+
+def C_V(datas,k):
+    datas =cross_val(datas,k)
+    datas_cv  = get_cross_val_ready(datas)
+    return datas_cv
 
 def reshape_mat(mat,start = 0 ,size = 68):
     mat = mat[start:start+size,start:start+size]
     return mat
 
+def merge_data(datas,output):
+    all_data = []
+    for i in range(len(datas)):
+        idvd = copy.deepcopy(datas[i])
+        idvd.append(output[i])
+        all_data.append(idvd)
+    
+    return all_data
+
 
 def mat_output(jsons):
     data_out = []
-    for i,json in enumerate(jsons) :
-        print("loading output : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
-        #reactivity = json["reactivity"]
+    for i ,json in  enumerate(jsons):
+        reactivity = json["reactivity"]
         deg_Mg_pH10 = json["deg_Mg_pH10"]
         deg_pH10 = json["deg_pH10"]
         deg_Mg_50C = json["deg_Mg_50C"]
         deg_50C = json["deg_50C"]
         out = []
         for j in range(len(deg_50C)):
-             out.append([#reactivity[j],
-                         deg_Mg_pH10[j],
-                         deg_pH10[j],
-                         deg_Mg_50C[j],
-                         deg_50C[j]])
+            out.append([reactivity[j],
+                        deg_Mg_pH10[j],
+                        deg_pH10[j],
+                        deg_Mg_50C[j],
+                        deg_50C[j]])
         data_out.append(out)
-    print()
-    data_out = numpy.array(data_out)
-    return data_out
+    return numpy.array(data_out)
+
+def cross_val(data,k):
+    out = []
+    data = copy.deepcopy(data)
+    random.shuffle(data)
+    frac = int(len(data)/k)
+    for i in range(k-1) :
+        out.append(data[i*frac:i*frac+frac])
+    out.append(data[(i+1)*frac:])
+    return out
+
+def merge_cross_val_exept(CV_data,excepte):
+    exp = {"pos": [], "mat": [], "out" : []}
+    un_exp = {"pos": [], "mat": [], "out": []}
+    for i ,val  in enumerate(CV_data) :
+        if i == excepte: 
+            exp["pos"] = val[0]
+            exp["mat"] = val[1]
+            exp["out"] = val[2]
+            continue
+        un_exp["pos"].extend(val[0])
+        un_exp["mat"].extend(val[1])
+        un_exp["out"].extend(val[2])
+
+    un_exp["pos"] = numpy.array(un_exp["pos"])
+    un_exp["mat"] = numpy.array(un_exp["mat"])
+    un_exp["out"] = numpy.array(un_exp["out"])
+    exp["pos"] = numpy.array(exp["pos"])
+    exp["mat"] = numpy.array(exp["mat"])
+    exp["out"] = numpy.array(exp["out"])
+    return un_exp , exp
+
+def get_window_data(jsons,window = 3):
+    out1 = []
+    out2 = []
+    out3 = []
+    out123 = []
+    out_index  = numpy.array([0,0,0,0,0,0,0,
+                  0,0,0,0,0,0,0])
+    out_mat = numpy.matrix([-1]*window*window).reshape(window,window)
+    half = int(window/2)
+    for i,json in enumerate(jsons):
+        print("loading input : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
+        mat = numpy.load("../data/bpps/"+ json["id"]+".npy")
+        ohaa  = one_hot_AA_seq(json["sequence"])
+        ohsty = one_hot_struct_seq(json["predicted_loop_type"])
+        ohst = one_hot_structure(json["structure"])
+        #
+        data = numpy.concatenate((ohaa ,ohsty , ohst), axis= 1)
+        data = numpy.array(data)
+        #
+        reactivity = json["reactivity"]
+        deg_Mg_pH10 = json["deg_Mg_pH10"]
+        deg_pH10 = json["deg_pH10"]
+        deg_Mg_50C = json["deg_Mg_50C"]
+        deg_50C = json["deg_50C"]
+        output = []
+        for j in range(len(deg_50C)):
+            output.append([reactivity[j],
+                        deg_Mg_pH10[j],
+                        deg_pH10[j],
+                        deg_Mg_50C[j],
+                        deg_50C[j]])
+        #
+        for i in range(len(output)):
+            m = copy.deepcopy(out_mat)
+            if i ==0 :
+                frag  = []
+                m[half:,half:] = mat[i:i+half+1,i:i+half+1]
+                for _ in range(half):
+                    frag.append((copy.deepcopy(out_index)))
+                frag.append(data[i])
+                for h in range(1,half+1):
+                    frag.append(data[i+h])
+            elif i == len(output)-1:
+                m[:half+1,:half+1] =  mat[i-half:i+1,i-half:i+1]
+                frag = []
+                for h in range(1,half+1):
+                    frag.append(data[i-h])
+                frag.append(data[i])
+                for _ in range(half):
+                    frag.append((copy.deepcopy(out_index)))
+            else :
+                m = mat[i-half:i+half+1,i-half:i+half+1]
+                frag = data[i-half:i+half+1]
+            #
+            out1.append(numpy.array(frag))
+            out2.append(numpy.array(m))
+            out3.append(numpy.array(output[i]))
+            out123.append([frag,m,output[i]])
+    return( {"pos": numpy.array(out1),
+            "mat": numpy.array(out2),
+            "out":numpy.array(out3),
+            "to_cv": numpy.array(out123)})
+
 
 if __name__ == "__main__" :
     jsons_train = []
@@ -165,12 +286,21 @@ if __name__ == "__main__" :
  
             jsons_test = []
 
+    
     with open("../data/test.json") as fil :
         for i in fil :
             jsons_test.append(json.loads(i))
 
 
-    mat_intput_train,mat_input2 = mat_input(jsons_train)
-
+    datas_input = mat_input(jsons_train)
+    
     Y_train = mat_output(jsons_train)
-    pass
+    data_all  = merge_data(datas_input,Y_train)
+
+    CV_data = C_V(data_all,k = 5)
+    learning, cv =  merge_cross_val_exept(CV_data,1)
+
+    ####
+    a = get_window_data(jsons_train,window = 5)
+
+
