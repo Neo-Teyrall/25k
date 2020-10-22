@@ -1,6 +1,8 @@
 import os
 import datetime
 import resnet
+import data
+import json
 from resnet import tail_model
 import tensorflow as tf
 from tensorflow.keras import Sequential
@@ -12,6 +14,10 @@ from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 
 import keras
 from keras.utils.vis_utils import plot_model
+
+
+from keras import backend as K
+
 
 from save import *
 import getpass
@@ -128,3 +134,92 @@ def compare_model_janus(mat_input, mat_output,
         save_fig(dic_fig,res_name_dir)
         del_fig([fig_acc,fig_val_acc,fig_val_loss,fig_loss])
         tf.keras.backend.clear_session()
+
+
+
+
+def learn_janus(X,Y,model,epochs,epochs_set,
+                batch_size = 20,
+                save_model:bool = False):
+    if save_model : 
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        save_dir = "../results/modeles/{}-{}-janus-train".format(now,getpass.getuser())
+        os.mkdir(save_dir)
+    done_epochs = 0
+    loss_data = []
+    val_loss_data = []
+    while done_epochs < epochs:
+        print(model)
+        fit_out = model.fit(x= X, y= Y,
+                  batch_size = batch_size,
+                  epochs = epochs_set,
+                  validation_split  = 0.2)
+        loss_data.extend(fit_out.history["loss"])
+        val_loss_data.extend(fit_out.history["val_loss"])
+        if save_model:
+            model.save(save_dir+"/E:{}.model".format(done_epochs))
+            fig_loss = pyplot.figure() 
+            plot_loss = fig_loss.add_subplot(1,1,1)
+            plot_loss.plot(loss_data)
+            plot_loss.set_ylabel("loss")
+            plot_loss.set_xlabel("epochs")
+            plot_loss.set_title("loss en fonction des epochs")
+            fig_loss.savefig(save_dir+"/loss.png")
+            numpy.save(save_dir+"/loss",[fig_loss])
+
+            fig_val_loss = pyplot.figure()
+            plot_val_loss = fig_val_loss.add_subplot(1,1,1)
+            plot_val_loss.plot(val_loss_data)
+            plot_val_loss.set_ylabel("val_loss")
+            plot_val_loss.set_xlabel("epochs")
+            plot_val_loss.set_title("val_loss en fonction des epochs")
+            fig_val_loss.savefig(save_dir+"/val_loss.png")
+            numpy.save(save_dir+"/val_loss",[fig_val_loss])
+        done_epochs += epochs_set
+        
+
+
+
+if __name__ == "__main__" :
+    jsons_train = []
+
+    with open("../data/train.json") as fil :
+        for i in fil :
+            a = json.loads(i)
+            if a["SN_filter"] == 0:
+                continue
+            jsons_train.append(a)
+ 
+            jsons_test = []
+
+    
+    with open("../data/test.json") as fil :
+        for i in fil :
+            jsons_test.append(json.loads(i))
+
+    
+
+
+    datas_input = data.mat_input(jsons_train)
+    
+    Y_train =data. mat_output(jsons_train)
+    data_all  = data.merge_data(datas_input,Y_train)
+
+    CV_data = data.C_V(data_all,k = 5)
+
+    learning, cv =  data.merge_cross_val_exept(CV_data,1)
+
+    Y_train = data.mat_output(jsons_train)
+    optimizer = keras.optimizers.Adam(learning_rate = 1e-6)
+    model = creat_model_janus(resnet.pre_act_mod,
+                      optimizer = "rmsprop",
+                      rep_head_1 = 2,
+                      rep_head_2 = 2,
+                      rep_merged = 2)
+    learn_janus(X = [learning["pos"],learning["mat"]],
+                Y = learning["out"],
+                model = model,
+                epochs =6,
+                epochs_set = 2,
+                save_model = True)
+

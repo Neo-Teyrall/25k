@@ -244,22 +244,29 @@ def get_window_data(jsons,window = 3):
         #
         for i in range(len(output)):
             m = copy.deepcopy(out_mat)
-            if i ==0 :
+            if i in range(0,half) :
                 frag  = []
                 m[half:,half:] = mat[i:i+half+1,i:i+half+1]
-                for _ in range(half):
-                    frag.append((copy.deepcopy(out_index)))
+                for h in range(-half,0):
+                    if i+h < 0 :
+                        frag.append((copy.deepcopy(out_index)))
+                    else :
+                        frag.append(data[i+h])
                 frag.append(data[i])
                 for h in range(1,half+1):
                     frag.append(data[i+h])
-            elif i == len(output)-1:
+            elif i in range(len(output)-half,len(output)):
+                
                 m[:half+1,:half+1] =  mat[i-half:i+1,i-half:i+1]
                 frag = []
                 for h in range(1,half+1):
                     frag.append(data[i-h])
                 frag.append(data[i])
-                for _ in range(half):
-                    frag.append((copy.deepcopy(out_index)))
+                for h in range(1,half+1):
+                    if i+h < len(output):
+                        frag.append(data[i+h])
+                    else:
+                        frag.append(copy.deepcopy(out_index))
             else :
                 m = mat[i-half:i+half+1,i-half:i+half+1]
                 frag = data[i-half:i+half+1]
@@ -271,7 +278,8 @@ def get_window_data(jsons,window = 3):
     return( {"pos": numpy.array(out1),
             "mat": numpy.array(out2),
             "out":numpy.array(out3),
-            "to_cv": numpy.array(out123)})
+            "to_cv": out123})
+
 
 
 if __name__ == "__main__" :

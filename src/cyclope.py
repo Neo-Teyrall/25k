@@ -56,7 +56,9 @@ def creat_model_cyclope(resnet_part,
                            kernel_size=(3,),
                            activation = "relu")(model)
     model = layers.Flatten()(model)
-    model = layers.Dense(5,activation ="softmax")(model)
+    for i in range (5):
+        model = layers.Dense(5,activation ="relu")(model)
+    model = layers.Dense(5,activation ="relu")(model)
     model = tf.keras.Model(inputs=[model_input_1,model_input_2], outputs=model)
 
     model.compile(optimizer=optimizer,
@@ -141,7 +143,7 @@ def compare_model_cyclope(pos_input,mat_input, output,
         save_fig(dic_fig,res_name_dir)
         del_fig([fig_val_loss,fig_loss])
         tf.keras.backend.clear_session()
-
+ 
 if __name__ == "__main__" :
     
     jsons_train = []
@@ -160,15 +162,16 @@ if __name__ == "__main__" :
         for i in fil :
             jsons_test.append(json.loads(i))
 
-    datas = data.get_window_data(jsons_train,window=5)
+    datas = data.get_window_data(jsons_train,window=3)
     model = creat_model_cyclope(resnet.pre_act_mod,
-                                rep_head_1=1,
-                                rep_head_2=1,
-                                rep_merged=1,
-                                window = 5)
+                                rep_head_1=15,
+                                rep_head_2=15,
+                                rep_merged=15,
+                                window = 3,
+                                optimizer = keras.optimizers.Adam(learning_rate = 1e-4))
     
     model.fit(x = [datas["pos"],datas["mat"]],
               y=datas["out"],validation_split=0.2,
-              batch_size = 52, epochs= 20)
+              batch_size = 128, epochs= 20)
     
     pass
