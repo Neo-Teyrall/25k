@@ -148,7 +148,7 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
             print("{}:{}/{} || {}:{}/{}".format(res_name,i_resnet+1,
                                                 len(list_resnet),
                                                 str(l_rate), i_l_rate+1,
-                                                len(l_rates)))
+                                                len(l_rates)),flush  = True)
             ## creat_model
             model = creat_model(resnet_part,optimizer=opt,rep=nb_resnet)
             ## fit model 
@@ -170,7 +170,7 @@ def compare_model(mat_input, mat_output, list_resnet, l_rates, nb_resnet = 20,
             del(out_fit)
             del(model)
             ## sleep between two fit to fresh gpu
-            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
+            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep),flush  = True)
             time.sleep(sleep)
         ## save plot
         #### Xlabel
@@ -227,7 +227,7 @@ def compare_model_janus(mat_input, mat_output,
             print("{}:{}/{} || {}:{}/{} | JANUS".format(res_name,i_resnet+1,
                                                 len(list_resnet),
                                                 str(l_rate), i_l_rate+1,
-                                                len(l_rates)))
+                                                len(l_rates)),flush  = True)
             model = creat_model_janus(resnet_part,optimizer=opt,
                                   rep_head_1= nb_resnet[0],
                                   rep_head_2= nb_resnet[1],
@@ -251,7 +251,7 @@ def compare_model_janus(mat_input, mat_output,
             del(model)
             del(out_fit)
             ## sleep between two fit to fresh gpu
-            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep))
+            print("begin Waiting at {} during {} second".format(datetime.datetime.now().strftime("%H-%M-%S"),sleep),flush  = True)
             time.sleep(sleep)
         ## save fig 
         save_fig(dic_fig,res_name_dir)
@@ -324,27 +324,24 @@ if __name__ == "__main__" :
     l_rates = [1e-1,1e-2,1e-3,
                1e-4,1e-5,1e-6,
                1e-7,1e-8,1e-9]
-    l_rates = [1e-1,1e-2]
+
     list_resnet = [resnet.classic,
                    resnet.original,
                    resnet.pre_act,
-                   resnet.pre_act_mod]
-
-    list_resnet = [resnet.classic,
                    resnet.pre_act_mod]
 
     compare_model(mat_input = mat_intput_train,
                   mat_output = Y_train,
                   list_resnet = list_resnet,
                   l_rates = l_rates,
-                  nb_resnet = 1 ,
-                  epochs = 3,
-                  verbose = 1)
+                  nb_resnet = 30 ,
+                  epochs = 50,
+                  verbose = 0,sleep = 60)
 
     compare_model_janus(mat_input = (mat_intput_train, mat_input2),
                         mat_output = Y_train,
                         list_resnet = list_resnet,
                         l_rates = l_rates,
-                        nb_resnet = [1,1,1] ,
-                        epochs = 3)
+                        nb_resnet = [20,20,20] ,
+                        epochs = 50,sleep = 60*3,verbose = 0)
 
