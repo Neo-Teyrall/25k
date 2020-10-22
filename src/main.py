@@ -41,6 +41,8 @@ from sklearn.utils.class_weight import compute_class_weight
 ###############################################################################
 
 
+
+
 if __name__ == "__main__" :
     jsons_train = []
 
@@ -65,27 +67,30 @@ if __name__ == "__main__" :
     l_rates = [1e-1,1e-2,1e-3,
                1e-4,1e-5,1e-6,
                1e-7,1e-8,1e-9]
-    l_rates = [1e-1,1e-2]
+
     list_resnet = [resnet.classic,
                    resnet.original,
                    resnet.pre_act,
                    resnet.pre_act_mod]
 
+
     list_resnet = [resnet.classic,
                    resnet.pre_act_mod]
 
     simple.compare_model(mat_input = mat_intput_train,
+   
+
                   mat_output = Y_train,
                   list_resnet = list_resnet,
                   l_rates = l_rates,
-                  nb_resnet = 1 ,
-                  epochs = 3,
-                  verbose = 1)
+                  nb_resnet = 30 ,
+                  epochs = 50,
+                  verbose = 0,sleep = 60)
 
     janus.compare_model_janus(mat_input = (mat_intput_train, mat_input2),
                         mat_output = Y_train,
                         list_resnet = list_resnet,
                         l_rates = l_rates,
-                        nb_resnet = [1,1,1] ,
-                        epochs = 3)
+                        nb_resnet = [20,20,20] ,
+                        epochs = 50,sleep = 60*3,verbose = 0)
 
