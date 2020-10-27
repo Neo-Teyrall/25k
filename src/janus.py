@@ -137,6 +137,68 @@ def compare_model_janus(mat_input, mat_output,
 
 
 
+def learn_models_janus(mat_input, mat_output,
+                       list_resnet,
+                       l_rate = 1e-6,
+                       nb_resnet = [20,20,20],
+                       epochs = 5,
+                       batch_size = 16,
+                       verbose = 1,sleep = 0):
+    now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    save_dir = "../results/modeles/{}-{}-janus".format(now,getpass.getuser())
+    os.mkdir(save_dir)
+    head_csv(save_dir,epochs)
+    for i_resnet,resnet_part in enumerate(list_resnet):
+        ## creat renset repersitory
+        res_name = str(resnet_part).split()[1]
+        res_name_dir = save_dir + "/{}".format(res_name)
+        os.mkdir(res_name_dir)
+        ## sauvegarde du shema du model
+        model = creat_model_janus(resnet_part,
+                                  rep_head_1= nb_resnet[0],
+                                  rep_head_2= nb_resnet[1],
+                                  rep_merged= nb_resnet[2])
+        plot_model(model,to_file=res_name_dir + "/model.png")
+        del(model)
+        ## preparation des plot
+        #### loss
+        fig = pyplot.figure()
+        ax = fig.add_subplot(1,1,1)
+        #### acc
+        ## pour chaque learning rate
+        tf.keras.backend.clear_session()
+        opt = keras.optimizers.Adam(learning_rate=l_rate)
+        print("{}:{}/{} || | JANUS".format(res_name,i_resnet+1,
+                                                    len(list_resnet)))
+        model = creat_model_janus(resnet_part,optimizer=opt,
+                                  rep_head_1= nb_resnet[0],
+                                  rep_head_2= nb_resnet[1],
+                                  rep_merged= nb_resnet[2])
+        #fit model
+        out_fit = model.fit(x = mat_input,
+                            y = mat_output,
+                            batch_size=batch_size,
+                            #steps_per_epoch= 5,
+                            epochs =epochs,
+                            validation_split= 0.2,
+                            verbose = verbose)
+        ## add data to plot
+        ax.plot(out_fit.history["loss"],label = "loss")
+        ax.plot(out_fit.history["val_loss"],label = "val_loss")
+        ax.set_xlabel("epochs")
+        ax.set_ylabel("loss/val_loss")
+        fig.legend()
+        fig.savefig(res_name_dir + '/' + "loss-val_loss.png")
+        numpy.save(res_name_dir + '/'+ "loss-val_loss.npy",[fig])
+        pyplot.close(fig)
+        ## save model
+        model.save(res_name_dir+"/_{}_.model".format(l_rate))
+        ## save data_to csv
+        del(model)
+        del(out_fit)
+        ## sleep between two fit to fresh gpu
+        tf.keras.backend.clear_session()
+
 
 def learn_janus(X,Y,model,epochs,epochs_set,
                 batch_size = 20,
@@ -160,25 +222,21 @@ def learn_janus(X,Y,model,epochs,epochs_set,
             model.save(save_dir+"/E:{}.model".format(done_epochs))
             fig_loss = pyplot.figure() 
             plot_loss = fig_loss.add_subplot(1,1,1)
-            plot_loss.plot(loss_data)
-            plot_loss.set_ylabel("loss")
+            plot_loss.plot(loss_data,label= "loss")
+            plot_loss.plot(val_loss_data,label="val_loss")
+            plot_loss.set_ylabel("loss/val_loss")
             plot_loss.set_xlabel("epochs")
-            plot_loss.set_title("loss en fonction des epochs")
-            fig_loss.savefig(save_dir+"/loss.png")
-            numpy.save(save_dir+"/loss",[fig_loss])
+            plot_loss.set_title("loss/val_loss en fonction des epochs")
+            fig_loss.legend()
+            fig_loss.savefig(save_dir+"/loss-val_loss.png")
 
-            fig_val_loss = pyplot.figure()
-            plot_val_loss = fig_val_loss.add_subplot(1,1,1)
-            plot_val_loss.plot(val_loss_data)
-            plot_val_loss.set_ylabel("val_loss")
-            plot_val_loss.set_xlabel("epochs")
-            plot_val_loss.set_title("val_loss en fonction des epochs")
-            fig_val_loss.savefig(save_dir+"/val_loss.png")
-            numpy.save(save_dir+"/val_loss",[fig_val_loss])
+            numpy.save(save_dir+"/loss",[fig_loss])
+            pyplot.close(fig_loss)
         done_epochs += epochs_set
         
 
-
+loss_data = [1,2,3]
+val_loss_data = [3,2,1]
 
 if __name__ == "__main__" :
     jsons_train = []
@@ -210,16 +268,17 @@ if __name__ == "__main__" :
     learning, cv =  data.merge_cross_val_exept(CV_data,1)
 
     Y_train = data.mat_output(jsons_train)
-    optimizer = keras.optimizers.Adam(learning_rate = 1e-6)
+    optimizer = keras.optimizers.Adam(learning_rate = 1e-4)
     model = creat_model_janus(resnet.pre_act_mod,
-                      optimizer = "rmsprop",
-                      rep_head_1 = 2,
-                      rep_head_2 = 2,
-                      rep_merged = 2)
-    learn_janus(X = [learning["pos"],learning["mat"]],
-                Y = learning["out"],
-                model = model,
-                epochs =6,
-                epochs_set = 2,
-                save_model = True)
+                              optimizer = optimizer,
+                              rep_head_1 = 15,
+                              rep_head_2 = 10,
+                              rep_merged = 15)
+    learn_models_janus([learning["pos"],learning["mat"]],
+                       learning["out"],
+                       epochs = 300,
+                       list_resnet = [resnet.original,
+                                      resnet.pre_act,
+                                      resnet.pre_act_mod]
+                       )
 

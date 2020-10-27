@@ -144,6 +144,38 @@ def compare_model_cyclope(pos_input,mat_input, output,
         del_fig([fig_val_loss,fig_loss])
         tf.keras.backend.clear_session()
  
+def learn_cyclope(X,Y,model,epochs,epochs_set,
+                batch_size = 20,
+                save_model:bool = False):
+    if save_model : 
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        save_dir = "../results/modeles/{}-{}-cyclope-train".format(now,getpass.getuser())
+        os.mkdir(save_dir)
+    done_epochs = 0
+    loss_data = []
+    val_loss_data = []
+    while done_epochs < epochs:
+        print(model)
+        fit_out = model.fit(x= X, y= Y,
+                  batch_size = batch_size,
+                  epochs = epochs_set,
+                  validation_split  = 0.2)
+        loss_data.extend(fit_out.history["loss"])
+        val_loss_data.extend(fit_out.history["val_loss"])
+        if save_model:
+            model.save(save_dir+"/E:{}.model".format(done_epochs))
+            fig_loss = pyplot.figure() 
+            plot_loss = fig_loss.add_subplot(1,1,1)
+            plot_loss.plot(loss_data,label= "loss")
+            plot_loss.plot(val_loss_data,label="val_loss")
+            plot_loss.set_ylabel("loss/val_loss")
+            plot_loss.set_xlabel("epochs")
+            plot_loss.set_title("loss/val_loss en fonction des epochs")
+            fig_loss.legend()
+            fig_loss.savefig(save_dir+"/loss-val_loss.png")
+            numpy.save(save_dir+"/loss",[fig_loss])
+        done_epochs += epochs_set
+
 if __name__ == "__main__" :
     
     jsons_train = []
@@ -162,16 +194,19 @@ if __name__ == "__main__" :
         for i in fil :
             jsons_test.append(json.loads(i))
 
-    datas = data.get_window_data(jsons_train,window=3)
+    datas = data.get_window_data(jsons_train,window=7)
     model = creat_model_cyclope(resnet.pre_act_mod,
-                                rep_head_1=15,
-                                rep_head_2=15,
-                                rep_merged=15,
-                                window = 3,
-                                optimizer = keras.optimizers.Adam(learning_rate = 1e-4))
+                                rep_head_1=5,
+                                rep_head_2=5,
+                                rep_merged=5,
+                                window = 7,
+                                optimizer = keras.optimizers.Adam(learning_rate = 1e-6))
     
-    model.fit(x = [datas["pos"],datas["mat"]],
-              y=datas["out"],validation_split=0.2,
-              batch_size = 128, epochs= 20)
+    learn_cyclope(X = [datas["pos"],datas["mat"]],
+                Y = datas["out"],
+                model = model,
+                epochs =200,
+                epochs_set = 20,
+                save_model = True)
     
     pass

@@ -123,6 +123,29 @@ def mat_input(jsons,decalage = 0, taille = 68,):
         datas.append([data,mat])
     return(datas)
 
+def mat_input_test(jsons,decalage = 0, taille = 68,):
+    datas = {}
+    for i,json in enumerate(jsons) :
+        print("loading input : {:.2f} %".format((i+1)/len(jsons)*100),end = "\r")
+        id_ = json["id"]
+        length = json["seq_length"]
+
+        data, mat = get_data_decalage(json,decalage,taille) 
+        data1, mat1 = get_data_decalage(json,length-taille,taille) 
+        datas.setdefault(id_,{"pos" : numpy.array([data,data1]), "mat" : numpy.array([mat,mat1]),"len" : length})
+    return(datas)
+
+def get_data_decalage(json, decalage ,taille):
+    mat = numpy.load("../data/bpps/"+ json["id"]+".npy")
+    mat = reshape_mat(mat,start= decalage, size  = taille)
+    ohaa  = one_hot_AA_seq(json["sequence"][decalage:decalage + taille])
+    ohsty = one_hot_struct_seq(json["predicted_loop_type"][decalage:decalage + taille])
+    ohst = one_hot_structure(json["structure"][decalage:decalage + taille])
+    data = numpy.concatenate((ohaa ,ohsty , ohst), axis= 1)
+    data = numpy.array(data)
+    return data, mat
+    pass
+
 def split_datas(datas):
     colision = []
     vec_pos = []

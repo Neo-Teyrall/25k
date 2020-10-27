@@ -1,0 +1,52 @@
+Help on module data:
+
+NAME
+    data
+
+FUNCTIONS
+    C_V(datas, k)
+    
+    cross_val(data, k)
+    
+    extract_X2(jsons)
+    
+    extract_Y(jsons)
+    
+    extract_key(clef: str, jsons) -> pandas.core.frame.DataFrame
+    
+    get_cross_val_ready(cv_datas)
+    
+    get_window_data(jsons, window=3)
+    
+    mat_input(jsons, decalage=0, taille=68)
+    
+    mat_input_test(jsons, decalage=0, taille=68)
+    
+    mat_output(jsons)
+    
+    mat_struct(seq: str)
+    
+    merge_cross_val_exept(CV_data, excepte)
+    
+    merge_data(datas, output)
+    
+    norm(vec)
+    
+    normer(vec)
+    
+    one_hot_AA_seq(seq: str)
+    
+    one_hot_struct_seq(seq: str)
+    
+    one_hot_structure(seq: str)
+    
+    reshape_mat(mat, start=0, size=68)
+    
+    split_datas(datas)
+
+DATA
+    __warningregistry__ = {'version': 703}
+
+FILE
+    /home/neo/25k/src/data.py
+
